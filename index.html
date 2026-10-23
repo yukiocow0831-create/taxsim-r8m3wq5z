@@ -57,6 +57,16 @@ details summary{cursor:pointer;font-weight:bold;color:#4a90e2}
 <label>医療費 <small>（保険などで補てんされた分を引いた額）</small></label><input id="med" inputmode="numeric" placeholder="0">
 <label>その他の所得控除 <small>（寡婦・障害者控除など、所得税の控除額）</small></label><input id="oth" inputmode="numeric" placeholder="0"></div>
 
+<div class="card" style="--c:#3949ab"><h2>🏠 住宅ローン控除</h2>
+<label>住宅ローン控除を使う</label><select id="hl"><option value="0">使わない</option><option value="1">使う</option></select>
+<label>入居した年</label><select id="hly"><option value="8">令和8年〜（2026年〜）</option><option value="7">令和7年</option><option value="6">令和6年</option><option value="5">令和5年</option><option value="4">令和4年</option><option value="old">令和3年以前（控除額を手入力）</option></select>
+<label>新築か中古か</label><select id="hln"><option value="new">新築・買取再販</option><option value="used">中古（既存住宅）</option></select>
+<label>住宅の種類</label><select id="hlt"><option value="nin">認定長期優良・認定低炭素</option><option value="zeh">ZEH水準省エネ住宅</option><option value="sho">省エネ基準適合住宅</option><option value="etc">その他の住宅</option></select>
+<label>子育て・若者夫婦世帯 <small>（19歳未満の扶養親族あり、または夫婦どちらかが40歳未満）※令和6年以降入居</small></label><select id="hlk"><option value="0">いいえ</option><option value="1">はい</option></select>
+<label>床面積</label><select id="hlf"><option value="50">50㎡以上</option><option value="40">40㎡以上50㎡未満</option></select>
+<label>年末のローン残高</label><input id="hlb" inputmode="numeric" placeholder="例 30000000">
+<label>住宅の取得対価 <small>（任意。残高より少ない場合はこちらが上限）</small></label><input id="hlc" inputmode="numeric" placeholder="0">
+<label>控除額を手入力 <small>（令和3年以前の入居や、証明書の金額を使う場合）</small></label><input id="hlm" inputmode="numeric" placeholder="空欄なら自動計算"></div>
 <div class="card" style="--c:#8d6e63"><h2>⑤ 予定納税・源泉など</h2>
 <label>前年分の所得税額 <small>（予定納税基準額：復興税込・源泉分除く）</small></label><input id="prev" inputmode="numeric" placeholder="0">
 <label>今年の源泉徴収税額 <small>（報酬から引かれた分）</small></label><input id="gen" inputmode="numeric" placeholder="0">
@@ -74,7 +84,7 @@ details summary{cursor:pointer;font-weight:bold;color:#4a90e2}
 </main>
 <script>
 const $=id=>document.getElementById(id);
-const F=['year','biz','blue','other','bizrate','age','sp','spinc','si','kyosai','life1','life2','life3','eq','med','oth','prev','gen','kin','kmem','r1','e1','r2','e2','r3','e3'];
+const F=['year','biz','blue','other','bizrate','age','sp','spinc','si','kyosai','life1','life2','life3','eq','med','oth','prev','gen','kin','kmem','r1','e1','r2','e2','r3','e3','hl','hly','hln','hlt','hlk','hlf','hlb','hlc','hlm'];
 const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
 const man=n=>(n/10000).toLocaleString('ja-JP')+'万円';
 const num=id=>{const v=parseFloat(String($(id).value).replace(/[,，円\s]/g,''));return isNaN(v)?0:v};
@@ -104,6 +114,11 @@ function dep(c,inc,y){const lim=y==8?62e4:58e4;const N={ippan:'一般',tokutei:'
 if(inc<=lim){const t={ippan:[38,33,5],tokutei:[63,45,18],rojin:[48,38,10],dokyo:[58,45,13]}[c];return{it:t[0]*1e4,rt:t[1]*1e4,diff:t[2]*1e4,lab:'扶養控除（'+N[c]+'）'}}
 if(c=='tokutei'&&inc<=123e4){const a=TKIT.find(r=>inc<=r[0]*1e4)[1],b=TKRT.find(r=>inc<=r[0]*1e4)[1];return{it:a*1e4,rt:b*1e4,diff:0,lab:'特定親族特別控除'}}
 return{it:0,rt:0,diff:0,lab:'所得が多いため対象外（'+N[c]+'）'}}
+function loanLimit(y,n,t,k){// 万円
+if(n=='new'){if(y==4||y==5)return {nin:5000,zeh:4500,sho:4000,etc:3000}[t];
+const a={nin:[4500,5000],zeh:[3500,4500],sho:[3000,4000],etc:[0,0]};if(y>=8){a.sho=[2000,3000]}if(y==6||y==7||y>=8)return a[t][k?1:0]}
+if(y>=8)return {nin:k?4500:3500,zeh:k?4500:3500,sho:k?3000:2000,etc:2000}[t];
+return t=='etc'?2000:3000}
 function lifeIT(p){return p<=2e4?p:p<=4e4?p/2+1e4:p<=8e4?p/4+2e4:4e4}
 function lifeRT(p){return p<=12e3?p:p<=32e3?p/2+6e3:p<=56e3?p/4+14e3:28e3}
 const RT=[[1949e3,.05,0],[3299e3,.10,97500],[6949e3,.20,427500],[8999e3,.23,636e3],[17999e3,.33,1536e3],[39999e3,.40,2796e3],[Infinity,.45,4796e3]];
@@ -123,12 +138,22 @@ const e1=Math.min(5e4,num('eq')),e2=Math.min(25e3,num('eq')/2);if(e1){IT+=e1;RTd
 const md=Math.min(200e4,Math.max(0,num('med')-Math.min(10e4,T*.05)));if(md){IT+=md;RTd+=md;ded.push(['医療費控除（支払額−10万円または所得の5%）',md,md])}
 const ot=num('oth');if(ot){IT+=ot;RTd+=ot;ded.push(['その他の所得控除',ot,ot])}
 // 所得税
-const ti=fl(T-IT,1000);const r=itRate(ti);const base=Math.max(0,Math.floor(ti*r[1]-r[2]));const fk=Math.floor(base*.021);const itTotal=base+fk;
+const ti=fl(T-IT,1000);const r=itRate(ti);const base0=Math.max(0,Math.floor(ti*r[1]-r[2]));
+let hlAmt=0,hlF='',hlOk=true,hlMsg='',hlIT=0,hlRTcap=0,hlOld=false;
+if($('hl').value=='1'){const hy=$('hly').value;hlOld=hy=='old';const manIn=num('hlm');const fa=+$('hlf').value;
+if(T>(fa==40?1000e4:2000e4)){hlOk=false;hlMsg=`合計所得が${fa==40?'1,000':'2,000'}万円を超えるため、この年は住宅ローン控除を受けられません`}
+else if(manIn>0||hlOld){hlAmt=manIn;hlF=`手入力の控除可能額 ${yen(manIn)}`}
+else{const yy=+hy;const kid=$('hlk').value=='1'&&yy>=6&&fa==50;const lim=loanLimit(yy,$('hln').value,$('hlt').value,kid)*1e4;
+let bal=num('hlb');const c=num('hlc');if(c>0)bal=Math.min(bal,c);
+hlAmt=Math.floor(Math.min(bal,lim)*.007/100)*100;hlF=`min(年末残高 ${yen(bal)}, 借入限度額 ${man(lim)}${kid?'（子育て等上乗せ）':''}) × 0.7%`;
+if(lim==0){hlMsg='その他の住宅（新築）は令和6年以降入居では原則対象外です（令和5年までに建築確認を受けたものは2,000万円）'}}
+hlIT=Math.min(hlAmt,base0);hlRTcap=hlOld?Math.min(Math.floor(ti*.07),136500):Math.min(Math.floor(ti*.05),97500)}
+const base=base0-hlIT;const fk=Math.floor(base*.021);const itTotal=base+fk;
 const gen=num('gen');const prevTax=num('prev');const yotei=prevTax>=15e4?Math.floor(prevTax/3/100)*100:0;
 const kakutei=Math.floor((itTotal-gen-yotei*2)/100)*100;
 // 住民税
 const tr=fl(T-RTd,1000);let adj=0,adjF='';if(T<=2500e4&&tr>0){if(tr<=200e4){adj=Math.min(diffSum,tr)*.05;adjF=`課税所得200万円以下：min(人的控除差 ${yen(diffSum)}, ${yen(tr)})×5%`}else{adj=Math.max((diffSum-(tr-200e4))*.05,2500);adjF=`{人的控除差 ${yen(diffSum)}−(${yen(tr)}−200万円)}×5%（最低2,500円）`}}
-const shotokuwari=Math.max(0,Math.floor((tr*.10-adj)/100)*100);const kin=tr>0?num('kin'):0;const rtTotal=shotokuwari+kin;
+const shotokuwari=Math.max(0,Math.floor((tr*.10-adj)/100)*100);const hlRT=Math.min(Math.max(0,hlAmt-hlIT),hlRTcap,shotokuwari);const shoAfter=shotokuwari-hlRT;const kin=tr>0?num('kin'):0;const rtTotal=shoAfter+kin;
 // 事業税
 const br=+$('bizrate').value;const bb=fl(biz+blue-290e4,1000);const bt=Math.floor(bb*br/100)*100;
 // 国保 目安
@@ -144,8 +169,8 @@ let h=`<div class="card" style="--c:#1e88e5"><h2>📋 所得と控除</h2><table
 <div class="card" style="--c:#e53935"><h2>🧾 納税予測（税目ごと）</h2>
 <h3>所得税（＋復興特別所得税）</h3><table>
 ${line('課税所得金額',yen(ti),`${yen(T)} − 所得控除 ${yen(IT)}（1,000円未満切捨て）`)}
-${line('所得税（基準所得税額）',yen(base),`${yen(ti)} × ${r[1]*100}% − 控除額 ${yen(r[2])}`)}
-${line('復興特別所得税',yen(fk),`${yen(base)} × 2.1%`)}
+${line('所得税（基準所得税額）',yen(base0),`${yen(ti)} × ${r[1]*100}% − 控除額 ${yen(r[2])}`)}${$('hl').value=='1'?(hlOk?line('住宅ローン控除（所得税から）',`−${yen(hlIT)}`,`控除額 ${yen(hlAmt)}（${hlF}）のうち所得税額まで。${hlMsg}`):line('住宅ローン控除','対象外',hlMsg)):''}
+${line('復興特別所得税',yen(fk),`${hlIT?'住宅ローン控除後の ':''}${yen(base)} × 2.1%`)}
 ${line('<b>所得税の年税額</b>',yen(itTotal))}
 ${gen?line('源泉徴収税額',`−${yen(gen)}`):''}${yotei?line('予定納税額（7月＋11月）',`−${yen(yotei*2)}`):''}
 ${line('<b>3月15日の確定申告で納める額</b>',kakutei>=0?yen(kakutei):'還付 '+yen(-kakutei),'年税額 − 源泉 − 予定納税（100円未満切捨て）')}</table>
@@ -153,7 +178,7 @@ ${line('<b>3月15日の確定申告で納める額</b>',kakutei>=0?yen(kakutei):
 ${line('課税所得金額',yen(tr),`${yen(T)} − 所得控除 ${yen(RTd)}`)}
 ${line('調整控除',`−${yen(adj)}`,adjF||'対象なし')}
 ${line('所得割',yen(shotokuwari),`${yen(tr)} × 10% − 調整控除 ${yen(adj)}（100円未満切捨て）`)}
-${line('均等割（森林環境税含む）',yen(kin))}
+${hlAmt-hlIT>0?line('住宅ローン控除（住民税から）',`−${yen(hlRT)}`,`所得税で引ききれない ${yen(hlAmt-hlIT)} を、上限 min(所得税の課税所得 ${yen(ti)}×${hlOld?'7%, 136,500円':'5%, 97,500円'}) = ${yen(hlRTcap)} の範囲で`):''}${line('均等割（森林環境税含む）',yen(kin))}
 ${line('<b>住民税 合計</b>',yen(rtTotal))}</table>
 <h3>個人事業税（翌年度に課税）</h3><table>
 ${line('課税標準',yen(bb),`事業所得 ${yen(biz)} ＋ 青色申告特別控除 ${yen(blue)} − 事業主控除 290万円`)}
@@ -175,8 +200,8 @@ ${line('',yen(kk))}<table>${line('来年度の国保の目安',yen(kk),`(合計�
 <p class="note">⚠️ 目安です。料率・平等割は市区町村で違います。今年の社会保険料控除には使いません。${age>=75?'75歳以上は後期高齢者医療制度です。':''}</p></div>
 <div class="card furu" style="--c:#c2185b"><h2>🎁 ふるさと納税の上限額（目安）</h2>
 <div class="total">${yen(furu)}</div>
-<div class="f">住民税所得割 ${yen(shotokuwari)} × 20% ÷ (90% − 所得税率 ${fr*100}% × 1.021) ＋ 2,000円</div>
-<p class="note">この金額までなら自己負担2,000円で済む目安です。ワンストップ特例は個人事業主は使えないため確定申告で寄附金控除を受けます。</p></div>`;
+<div class="f">住民税所得割（調整控除後・住宅ローン控除前）${yen(shotokuwari)} × 20% ÷ (90% − 所得税率 ${fr*100}% × 1.021) ＋ 2,000円</div>
+<p class="note">この金額までなら自己負担2,000円で済む目安です。ワンストップ特例は個人事業主は使えないため確定申告で寄附金控除を受けます。${$('hl').value=='1'?'<br>🏠 住民税の特例分の上限は住宅ローン控除「前」の所得割で決まるため、住宅ローン控除で上限は下がりません。ただし住宅ローン控除で所得税が0円近くになる場合、寄附による所得税の軽減が少なくなるため、実際の上限は少し下がることがあります。':''}</p></div>`;
 h=h.replace(`${line('',yen(kk))}`,'');$('out').innerHTML=h;$('out').scrollIntoView({behavior:'smooth'})}
 load();document.querySelectorAll('main input,main select').forEach(e=>e.addEventListener('change',save));
 </script></body></html>
